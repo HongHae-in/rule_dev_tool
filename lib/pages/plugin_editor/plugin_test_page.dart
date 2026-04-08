@@ -60,8 +60,9 @@ class _PluginTestPageState extends State<PluginTestPage> {
   void initState() {
     super.initState();
     plugin = Modular.args.data as Plugin;
-    testKeywordController.addListener(
-        () => errorMsg.isNotEmpty ? setState(() => errorMsg = "") : null);
+    testKeywordController.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
@@ -137,10 +138,48 @@ class _PluginTestPageState extends State<PluginTestPage> {
         }
       }
     } catch (e) {
-      errorMsg = e.toString();
+      errorMsg = _formatError(e);
     } finally {
       if (mounted) setState(() => isTesting = false);
     }
+  }
+
+  String _formatError(dynamic error) {
+    if (error is DioException) {
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+          return '连接超时：服务器响应时间过长，请检查网络连接或稍后重试';
+        case DioExceptionType.sendTimeout:
+          return '发送超时：请求数据发送超时，请检查网络连接';
+        case DioExceptionType.receiveTimeout:
+          return '接收超时：服务器响应超时，请稍后重试';
+        case DioExceptionType.badResponse:
+          return '服务器错误：HTTP ${error.response?.statusCode} - ${error.response?.statusMessage ?? '未知错误'}';
+        case DioExceptionType.cancel:
+          return '请求已取消';
+        case DioExceptionType.connectionError:
+          return '连接错误：无法连接到服务器，请检查URL是否正确或网络连接';
+        case DioExceptionType.badCertificate:
+          return '证书错误：SSL证书验证失败';
+        case DioExceptionType.unknown:
+          return '未知错误：${error.message}';
+      }
+    }
+    if (error is CaptchaRequiredException) {
+      return '验证码要求：该网站需要验证码验证，无法自动完成测试';
+    }
+    if (error is NoResultException) {
+      return '无搜索结果：未找到匹配的搜索结果，请检查XPath配置是否正确';
+    }
+    if (error is SearchErrorException) {
+      return '搜索错误：${error.toString()}';
+    }
+    // 对于其他错误，显示简化的错误信息
+    final errorStr = error.toString();
+    if (errorStr.length > 200) {
+      return '错误：${errorStr.substring(0, 200)}...';
+    }
+    return '错误：$errorStr';
   }
 
   @override
@@ -154,12 +193,12 @@ class _PluginTestPageState extends State<PluginTestPage> {
           title: Text('${plugin.name} 测试'),
           actions: [
             IconButton(
-              onPressed: isTesting ? null : startTest,
+              onPressed: (isTesting || testKeywordController.text.trim().isEmpty) ? null : startTest,
               icon: const Icon(Icons.bug_report_outlined),
               tooltip: '开始测试',
             ),
             IconButton(
-              onPressed: resetState,
+              onPressed: (isTesting || testKeywordController.text.trim().isEmpty) ? null : resetState,
               icon: const Icon(Icons.refresh),
               tooltip: '重置',
             ),
@@ -248,35 +287,82 @@ class _PluginTestPageState extends State<PluginTestPage> {
   Widget _buildErrorWidget(ThemeData theme) => errorMsg.isEmpty || isTesting
       ? const SizedBox.shrink()
       : Container(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(
             color: theme.colorScheme.errorContainer,
             border: Border.all(color: theme.getCoreColor(CoreColorType.error)),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(Icons.error_outline,
-                color: theme.getCoreColor(CoreColorType.error), size: 20),
-            _h8,
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(errorMsg,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onErrorContainer)),
-                    _h8,
-                    TextButton(
-                      onPressed: startTest,
-                      style: TextButton.styleFrom(
-                          backgroundColor: 
-                              theme.getCoreColor(CoreColorType.error)
-                                  .withValues(alpha: 0.1)),
-                      child: Text('重试测试',
-                          style: TextStyle(
-                              color: theme.colorScheme.onErrorContainer)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.getCoreColor(CoreColorType.error).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.error_outline,
+                  color: theme.getCoreColor(CoreColorType.error),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '测试失败',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onErrorContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: theme.colorScheme.onErrorContainer.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      errorMsg,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onErrorContainer,
+                        height: 1.5,
+                      ),
                     ),
-                  ]),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                      onPressed: startTest,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('重试测试'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.onErrorContainer,
+                        backgroundColor: 
+                              theme.getCoreColor(CoreColorType.error)
+                                .withValues(alpha: 0.1),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                    ),
+              ],
             ),
           ]),
         );
@@ -435,6 +521,7 @@ class _PluginTestPageState extends State<PluginTestPage> {
 
   String _getChapterSubtitle() {
     if (isTesting) return '获取中...';
+    if (!_hasSearchHtml) return '未执行测试';
     if (!_hasSearchData) return '无有效搜索结果';
     if (!_needChapterParse) return '无需解析章节';
     if (chapters == null) return '未获取章节数据';
