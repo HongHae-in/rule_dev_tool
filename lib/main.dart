@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'app_module.dart';
 import 'package:rule_dev_tool/bean/dialog/dialog_helper.dart';
+import 'package:rule_dev_tool/request/request.dart';
 
 void main() {
+  // 初始化网络请求
+  Request();
   Modular.setObservers([KazumiDialog.observer]);
   runApp(ModularApp(module: AppModule(), child: const AppWidget()));
 }
