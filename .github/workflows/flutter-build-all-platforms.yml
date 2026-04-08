@@ -58,8 +58,6 @@ jobs:
               cp build/app/outputs/flutter-apk/app-x86_64-release.apk output/rule_dev_tool_x86_64.apk
               ;;
             Windows)
-              # 提取主 exe
-              cp build/windows/x64/runner/Release/rule_dev_tool.exe output/rule_dev_tool.exe
               # 打包全依赖 zip
               cd build/windows/x64/runner/Release
               zip -r ../../../../../output/rule_dev_tool_windows_portable.zip *
