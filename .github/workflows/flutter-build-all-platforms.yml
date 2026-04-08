@@ -1,19 +1,20 @@
 name: Flutter Build All Platforms & Release
 
-# 触发条件：仅在推送 v 开头的 Tag 时触发（和 Release 发布联动，避免无效打包）
+# 触发条件：推送 v 开头的 Tag，或在 Actions 页面手动点击运行
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
-# 全局权限配置（必须加，否则无法上传 Release）
+# 全局权限配置
 permissions:
   contents: write
   issues: write
   pull-requests: write
 
 jobs:
-  # ========== 1. 单元测试（所有平台共用，先跑测试再打包） ==========
+  # ========== 1. 单元测试 ==========
   test:
     runs-on: ubuntu-latest
     steps:
@@ -23,18 +24,18 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0' # 改成你项目用的 Flutter 版本，留空自动用最新稳定版
+          flutter-version: '3.41.6'
           channel: 'stable'
 
       - name: Install dependencies
         run: flutter pub get
 
       - name: Run unit tests
-        run: flutter test --machine --coverage > test-results.json
+        run: flutter test
 
   # ========== 2. Android 构建 ==========
   build-android:
-    needs: test # 依赖测试通过，测试失败则不打包
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -43,13 +44,13 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.41.6'
           channel: 'stable'
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Android APK (分架构)
+      - name: Build Android APK
         run: flutter build apk --release --split-per-abi
 
       - name: Upload Android to Release
@@ -73,7 +74,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.41.6'
           channel: 'stable'
 
       - name: Enable Windows desktop
@@ -91,8 +92,7 @@ jobs:
       - name: Upload Windows to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            rule_dev_tool-windows-v${{ github.ref_name }}.zip
+          files: rule_dev_tool-windows-v${{ github.ref_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -107,8 +107,13 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.41.6'
           channel: 'stable'
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libblkid-dev liblzma-dev libgcrypt20-dev
 
       - name: Enable Linux desktop
         run: flutter config --enable-linux-desktop
@@ -125,8 +130,7 @@ jobs:
       - name: Upload Linux to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            rule_dev_tool-linux-v${{ github.ref_name }}.zip
+          files: rule_dev_tool-linux-v${{ github.ref_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -141,7 +145,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.41.6'
           channel: 'stable'
 
       - name: Enable macOS desktop
@@ -159,13 +163,11 @@ jobs:
       - name: Upload macOS to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            rule_dev_tool-macos-v${{ github.ref_name }}.zip
+          files: rule_dev_tool-macos-v${{ github.ref_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ========== 6. iOS 构建（仅生成 .xcarchive，无法直接上架 App Store） ==========
-  # 注意：iOS 打包需要苹果开发者账号，这里仅生成归档文件，无法直接发布到 App Store
+  # ========== 6. iOS 构建 ==========
   build-ios:
     needs: test
     runs-on: macos-latest
@@ -176,19 +178,18 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.41.6'
           channel: 'stable'
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build iOS (Archive)
+      - name: Build iOS (IPA)
         run: flutter build ipa --release --no-codesign
 
       - name: Upload iOS to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            build/ios/ipa/*.ipa
+          files: build/ios/ipa/*.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
