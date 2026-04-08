@@ -17,7 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          # Android 增加 split-per-abi 参数
           - { name: Android, os: ubuntu-latest, command: flutter build apk --release --split-per-abi }
           - { name: Windows, os: windows-latest, command: flutter build windows --release }
           - { name: macOS,   os: macos-latest,   command: flutter config --enable-macos-desktop && flutter build macos --release }
@@ -41,6 +40,11 @@ jobs:
       - name: Execute Build
         run: ${{ matrix.platform.command }}
 
+      # ========== 针对 Windows 安装 zip 工具 ==========
+      - name: Install Zip on Windows
+        if: matrix.platform.name == 'Windows'
+        run: choco install zip -y
+
       # ========== 产物处理：重命名并整理到 output 文件夹 ==========
       - name: Prepare Artifacts
         shell: bash
@@ -48,15 +52,15 @@ jobs:
           mkdir -p output
           case "${{ matrix.platform.name }}" in
             Android)
-              # 提取三种架构的 APK 并重命名
+              # 提取三种架构并重命名
               cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk output/rule_dev_tool_arm64.apk
               cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk output/rule_dev_tool_armv7.apk
               cp build/app/outputs/flutter-apk/app-x86_64-release.apk output/rule_dev_tool_x86_64.apk
               ;;
             Windows)
-              # 复制 exe 到 output
+              # 提取主 exe
               cp build/windows/x64/runner/Release/rule_dev_tool.exe output/rule_dev_tool.exe
-              # 将 exe 连同其依赖的 dll 一起打包（这是用户真正能用的包）
+              # 打包全依赖 zip
               cd build/windows/x64/runner/Release
               zip -r ../../../../../output/rule_dev_tool_windows_portable.zip *
               ;;
@@ -73,7 +77,6 @@ jobs:
               zip -r ../../output/rule_dev_tool_web.zip *
               ;;
             iOS)
-              # 只有 .app 文件夹，供越狱或特殊用途
               cd build/ios/iphoneos
               zip -r ../../../output/rule_dev_tool_ios.zip Runner.app
               ;;
