@@ -1,4 +1,4 @@
-name: Flutter Build Multi-Platform Release
+name: Flutter Build Multi-Platform Universal Release
 
 on:
   push:
@@ -45,38 +45,46 @@ jobs:
         if: matrix.platform.name == 'Windows'
         run: choco install zip -y
 
-      # ========== 产物处理：重命名并整理到 output 文件夹 ==========
+      # ========== 产物处理：利用动态变量和通配符实现万能匹配 ==========
       - name: Prepare Artifacts
         shell: bash
         run: |
           mkdir -p output
+          # 从 pubspec.yaml 中提取项目名称
+          PROJECT_NAME=$(grep '^name:' pubspec.yaml | cut -d' ' -f2 | tr -d '\r')
+          echo "Detected Project Name: $PROJECT_NAME"
+
           case "${{ matrix.platform.name }}" in
             Android)
-              # 提取三种架构并重命名
-              cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk output/rule_dev_tool_arm64.apk
-              cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk output/rule_dev_tool_armv7.apk
-              cp build/app/outputs/flutter-apk/app-x86_64-release.apk output/rule_dev_tool_x86_64.apk
+              # 自动匹配三种架构的 APK
+              cp build/app/outputs/flutter-apk/*-arm64-v8a-release.apk output/app-android-arm64.apk
+              cp build/app/outputs/flutter-apk/*-armeabi-v7a-release.apk output/app-android-armv7.apk
+              cp build/app/outputs/flutter-apk/*-x86_64-release.apk output/app-android-x86_64.apk
               ;;
             Windows)
-              # 打包全依赖 zip
+              # 动态进入 Windows 构建目录并打包
               cd build/windows/x64/runner/Release
-              zip -r ../../../../../output/rule_dev_tool_windows_portable.zip *
+              zip -r ../../../../../output/app-windows-portable.zip *
               ;;
             macOS)
+              # 动态匹配 .app 文件夹并打包
               cd build/macos/Build/Products/Release
-              zip -r ../../../../../output/rule_dev_tool_macos.zip rule_dev_tool.app
+              zip -r ../../../../../output/app-macos-universal.zip *.app
               ;;
             Linux)
+              # 打包 Linux 运行束
               cd build/linux/x64/release/bundle
-              zip -r ../../../../../output/rule_dev_tool_linux.zip *
+              zip -r ../../../../../output/app-linux.zip *
               ;;
             Web)
+              # 打包 Web 静态文件
               cd build/web
-              zip -r ../../output/rule_dev_tool_web.zip *
+              zip -r ../../output/app-web.zip *
               ;;
             iOS)
+              # 打包 iOS 无签名 Runner
               cd build/ios/iphoneos
-              zip -r ../../../output/rule_dev_tool_ios.zip Runner.app
+              zip -r ../../../output/app-ios-debug-only.zip Runner.app
               ;;
           esac
 
@@ -84,6 +92,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
+          # 自动上传 output 文件夹下的所有文件
           files: output/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
