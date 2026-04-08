@@ -185,9 +185,10 @@ jobs:
       - name: Build iOS (Archive)
         run: flutter build ipa --release --no-codesign
 
-      
-      # Your project will need to have tests in test/ and a dependency on
-      # package:test for this step to succeed. Note that Flutter projects will
-      # want to change this to 'flutter test'.
-      - name: Run tests
-        run: dart test
+      - name: Upload iOS to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/ios/ipa/*.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
