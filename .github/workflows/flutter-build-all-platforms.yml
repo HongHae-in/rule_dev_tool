@@ -1,38 +1,29 @@
-name: Flutter Build All Platforms & Release
+name: Flutter Build Multi-Platform Release
 
-# 触发条件：推送 v 开头的 Tag，或在 Actions 页面手动点击运行
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
 
-# 全局权限配置
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
 
 jobs:
-  # ========== 1. 单元测试 (暂时跳过，待代码修复后取消注释) ==========
-  # test:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #     - name: Setup Flutter
-  #       uses: subosito/flutter-action@v2
-  #       with:
-  #         flutter-version: 'any'
-  #         channel: 'stable'
-  #     - name: Install dependencies
-  #       run: flutter pub get
-  #     - name: Run unit tests
-  #       run: flutter test
+  build:
+    name: Build for ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: Android, os: ubuntu-latest, command: flutter build apk --release }
+          - { name: Windows, os: windows-latest, command: flutter build windows --release }
+          - { name: macOS,   os: macos-latest,   command: flutter config --enable-macos-desktop && flutter build macos --release }
+          - { name: Linux,   os: ubuntu-latest,  command: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libblkid-dev liblzma-dev && flutter build linux --release }
+          - { name: Web,     os: ubuntu-latest,  command: flutter build web --release }
+          - { name: iOS,     os: macos-latest,   command: flutter build ios --release --no-codesign }
 
-  # ========== 2. Android 构建 ==========
-  build-android:
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,147 +31,52 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'any'
           channel: 'stable'
+          flutter-version: 'any'
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Android APK
-        run: flutter build apk --release --split-per-abi
+      - name: Execute Build
+        run: ${{ matrix.platform.command }}
 
-      - name: Upload Android to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-            build/app/outputs/flutter-apk/app-x86_64-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ========== 产物处理 (重命名并打包，去除版本号) ==========
 
-  # ========== 3. Windows 构建 ==========
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'any'
-          channel: 'stable'
-
-      - name: Enable Windows desktop
-        run: flutter config --enable-windows-desktop
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Windows
-        run: flutter build windows --release
-
-      - name: Zip Windows bundle
-        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath rule_dev_tool-windows-v${{ github.ref_name }}.zip
-
-      - name: Upload Windows to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: rule_dev_tool-windows-v${{ github.ref_name }}.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ========== 4. Linux 构建 ==========
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'any'
-          channel: 'stable'
-
-      - name: Install Linux dependencies
+      - name: Prepare Artifacts
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libblkid-dev liblzma-dev libgcrypt20-dev
+          mkdir -p output
+          case "${{ matrix.platform.name }}" in
+            Android)
+              cp build/app/outputs/flutter-apk/app-release.apk output/rule_dev_tool.apk
+              ;;
+            Windows)
+              cd build/windows/x64/runner/Release
+              zip -r ../../../../../output/rule_dev_tool-windows.zip *
+              ;;
+            macOS)
+              cd build/macos/Build/Products/Release
+              zip -r ../../../../../output/rule_dev_tool-macos.zip rule_dev_tool.app
+              ;;
+            Linux)
+              cd build/linux/x64/release/bundle
+              zip -r ../../../../../output/rule_dev_tool-linux.zip *
+              ;;
+            Web)
+              cd build/web
+              zip -r ../../output/rule_dev_tool-web.zip *
+              ;;
+            iOS)
+              # 因为没有签名没有IPA，所以打包 .app 文件夹
+              cd build/ios/iphoneos
+              zip -r ../../../output/rule_dev_tool-ios-app.zip Runner.app
+              ;;
+          esac
 
-      - name: Enable Linux desktop
-        run: flutter config --enable-linux-desktop
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Linux
-        run: flutter build linux --release
-
-      - name: Zip Linux bundle
-        run: zip -r rule_dev_tool-linux-v${{ github.ref_name }}.zip build/linux/x64/release/bundle/
-
-      - name: Upload Linux to Release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: rule_dev_tool-linux-v${{ github.ref_name }}.zip
+          tag_name: ${{ github.ref_name }}
+          files: output/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ========== 5. macOS 构建 ==========
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'any'
-          channel: 'stable'
-
-      - name: Enable macOS desktop
-        run: flutter config --enable-macos-desktop
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build macOS
-        run: flutter build macos --release
-
-      - name: Zip macOS app
-        run: zip -r rule_dev_tool-macos-v${{ github.ref_name }}.zip build/macos/Build/Products/Release/rule_dev_tool.app/
-
-      - name: Upload macOS to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: rule_dev_tool-macos-v${{ github.ref_name }}.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ========== 6. iOS 构建 ==========
-  build-ios:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'any'
-          channel: 'stable'
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build iOS (IPA)
-        run: flutter build ipa --release --no-codesign
-
-      - name: Upload iOS to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: build/ios/ipa/*.ipa
-     
