@@ -127,7 +127,7 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: searchURLController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'SearchURL',
                     border: OutlineInputBorder(),
                     helperMaxLines: 3,
@@ -137,7 +137,7 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: searchListController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'SearchList',
                     border: OutlineInputBorder(),
                     helperMaxLines: 4,
@@ -147,7 +147,7 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: searchNameController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'SearchName',
                     border: OutlineInputBorder(),
                     helperMaxLines: 4,
@@ -157,7 +157,7 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: searchResultController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'SearchResult',
                     border: OutlineInputBorder(),
                     helperMaxLines: 3,
@@ -167,7 +167,7 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: chapterRoadsController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'ChapterRoads',
                     border: OutlineInputBorder(),
                     helperMaxLines: 4,
@@ -177,7 +177,7 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: chapterResultController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'ChapterResult',
                     border: OutlineInputBorder(),
                     helperMaxLines: 4,
