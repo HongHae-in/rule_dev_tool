@@ -37,6 +37,26 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # ========== 核心：根据 Tag 动态修改版本号 ==========
+      - name: Sync Tag Version to Project
+        shell: bash
+        run: |
+          # 1. 从 Tag 中提取版本号 (去掉前缀 v)
+          # 如果是手动触发 (workflow_dispatch)，则默认使用 1.0.0
+          TAG_NAME="${{ github.ref_name }}"
+          VERSION_NAME=$(echo $TAG_NAME | sed 's/^v//')
+          if [[ "$TAG_NAME" == "master" || "$TAG_NAME" == "main" ]]; then
+            VERSION_NAME="1.0.0"
+          fi
+          
+          # 2. 使用构建次数作为 build number，确保安装包不冲突
+          VERSION_FULL="${VERSION_NAME}+${{ github.run_number }}"
+          
+          # 3. 修改 pubspec.yaml
+          sed -i "s/^version: .*/version: $VERSION_FULL/" pubspec.yaml
+          
+          echo "Final Project Version set to: $VERSION_FULL"
+
       - name: Execute Build
         run: ${{ matrix.platform.command }}
 
@@ -83,8 +103,13 @@ jobs:
               ;;
             iOS)
               # 打包 iOS 无签名 Runner
-              cd build/ios/iphoneos
-              zip -r ../../../output/app-ios-debug-only.zip Runner.app
+              if [ -d "build/ios/iphoneos/Runner.app" ]; then
+                cd build/ios/iphoneos
+                zip -r ../../../output/app-ios-debug-only.zip Runner.app
+              else
+                echo "iOS build folder not found, checking alternative paths..."
+                find build/ios -name "*.app" -exec zip -r output/app-ios-debug-only.zip {} +
+              fi
               ;;
           esac
 
