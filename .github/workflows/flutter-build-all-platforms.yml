@@ -103,13 +103,8 @@ jobs:
               ;;
             iOS)
               # 打包 iOS 无签名 Runner
-              if [ -d "build/ios/iphoneos/Runner.app" ]; then
-                cd build/ios/iphoneos
-                zip -r ../../../output/app-ios-debug-only.zip Runner.app
-              else
-                echo "iOS build folder not found, checking alternative paths..."
-                find build/ios -name "*.app" -exec zip -r output/app-ios-debug-only.zip {} +
-              fi
+              cd build/ios/iphoneos
+              zip -r ../../../output/app-ios-debug-only.zip Runner.app
               ;;
           esac
 
